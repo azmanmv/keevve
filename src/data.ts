@@ -68,4 +68,5 @@ export const categories = [
   'Technology',
   'Nature',
   'Everyday Life',
+  'Islamic Studies',
 ];

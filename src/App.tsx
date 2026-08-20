@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, ArrowRight, HelpCircle, ChevronRight, Menu, X, Brain, Compass, Globe, Sparkles, Microscope, Lightbulb, LogOut, Loader2 } from 'lucide-react';
+import { Search, ArrowRight, HelpCircle, ChevronRight, Menu, X, Brain, Compass, Globe, Sparkles, Microscope, Lightbulb, LogOut, Loader2, BookOpen, MessageCircle } from 'lucide-react';
 import { categories } from './data';
 import { db, auth, signInWithGoogle, logout, handleFirestoreError, OperationType } from './lib/firebase';
-import { collection, onSnapshot, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, query, orderBy, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 const categoryIcons: Record<string, any> = {
@@ -16,6 +16,7 @@ const categoryIcons: Record<string, any> = {
   'Science': Microscope,
   'Nature': Globe,
   'Everyday Life': Compass,
+  'Islamic Studies': BookOpen,
   'All': HelpCircle
 };
 
@@ -37,6 +38,36 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newQuestion, setNewQuestion] = useState({ text: '', dhivehiText: '', category: 'Philosophy' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // View Answers State
+  const [selectedQuestion, setSelectedQuestion] = useState<any | null>(null);
+  const [answers, setAnswers] = useState<any[]>([]);
+  const [answersLoading, setAnswersLoading] = useState(false);
+
+  const handleQuestionClick = async (question: any) => {
+    setSelectedQuestion(question);
+    setAnswersLoading(true);
+    setAnswers([]);
+    
+    try {
+      // Removed orderBy to avoid requiring a composite index in Firestore
+      const q = query(collection(db, 'answers'), where('questionId', '==', question.id));
+      const snapshot = await getDocs(q);
+      const aList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })).sort((a: any, b: any) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return timeB - timeA;
+      });
+      setAnswers(aList);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAnswersLoading(false);
+    }
+  };
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -283,6 +314,7 @@ export default function App() {
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.4, delay: index * 0.05 }}
                       key={question.id}
+                      onClick={() => handleQuestionClick(question)}
                       className={`group bg-[#111] border border-gray-900 rounded-2xl p-8 hover:border-[#D4FF00]/30 hover:bg-[#1a1a1a] transition-all cursor-pointer flex flex-col h-full transform ${rotation} hover:!rotate-0 hover:z-10`}
                     >
                       <div className="flex items-start justify-between mb-8">
@@ -417,6 +449,85 @@ export default function App() {
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Question'}
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Answer View Modal */}
+      <AnimatePresence>
+        {selectedQuestion && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setSelectedQuestion(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-3xl bg-[#111] border border-gray-800 rounded-3xl shadow-2xl z-10 flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 lg:p-10 border-b border-gray-900 flex-shrink-0 relative">
+                <button 
+                  onClick={() => setSelectedQuestion(null)}
+                  className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-[#D4FF00] text-[10px] uppercase tracking-[0.2em] font-bold">
+                    {selectedQuestion.category}
+                  </span>
+                </div>
+                <h2 className="text-2xl lg:text-3xl font-bold text-white mb-4 leading-tight">{selectedQuestion.text}</h2>
+                {selectedQuestion.dhivehiText && (
+                  <p className="text-xl text-gray-400 font-serif italic leading-relaxed" dir="rtl">
+                    {selectedQuestion.dhivehiText}
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-8 lg:p-10 hide-scrollbar">
+                <h3 className="text-xs uppercase tracking-[0.2em] font-bold text-gray-500 mb-8 flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4" />
+                  Responses ({answers.length})
+                </h3>
+                
+                {answersLoading ? (
+                  <div className="py-12 flex justify-center">
+                    <Loader2 className="w-8 h-8 text-[#D4FF00] animate-spin" />
+                  </div>
+                ) : answers.length > 0 ? (
+                  <div className="space-y-6">
+                    {answers.map(answer => (
+                      <div key={answer.id} className="bg-[#1a1a1a] border border-gray-800 rounded-2xl p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-white">
+                            {answer.authorName?.charAt(0) || '?'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-white">{answer.authorName}</p>
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                              {answer.createdAt?.toDate ? new Date(answer.createdAt.toDate()).toLocaleDateString() : 'Just now'}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+                          {answer.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 border border-dashed border-gray-800 rounded-2xl">
+                    <p className="text-gray-500 font-light mb-4">No responses yet.</p>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </div>
         )}
