@@ -1,0 +1,24 @@
+{
+  "entities": {
+    "Question": {
+      "title": "Question",
+      "description": "A question asked by a user",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "maxLength": 500 },
+        "dhivehiText": { "type": "string", "maxLength": 500 },
+        "category": { "type": "string", "maxLength": 100 },
+        "answers": { "type": "number" },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["text", "category", "answers", "authorId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "questions/{questionId}": {
+      "schema": "#/entities/Question",
+      "description": "Publicly visible questions"
+    }
+  }
+}

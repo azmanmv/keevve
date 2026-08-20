@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    
+    function isValidQuestion(data) {
+      return data.keys().hasAll(['text', 'category', 'answers', 'authorId', 'createdAt']) &&
+             data.keys().size() >= 5 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 500 &&
+             (!('dhivehiText' in data.keys()) || (data.dhivehiText is string && data.dhivehiText.size() <= 500)) &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 100 &&
+             data.answers is number && data.answers >= 0 &&
+             data.authorId is string && data.authorId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    match /questions/{questionId} {
+      // Anyone can read questions
+      allow read: if true;
+      
+      // Verified users can ask questions
+      allow create: if isSignedIn() &&
+                    request.auth.token.email_verified == true &&
+                    isValidId(questionId) &&
+                    isValidQuestion(incoming());
+                    
+      // Updates and deletes are not allowed for now
+      allow update, delete: if false;
+    }
+  }
+}

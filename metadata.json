@@ -1,0 +1,6 @@
+{
+  "name": "Keevve",
+  "description": "A platform for curiosity and asking 'Why?' (ކީއްވެ؟).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
